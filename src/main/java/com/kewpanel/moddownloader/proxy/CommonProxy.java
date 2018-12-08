@@ -67,7 +67,9 @@ public class CommonProxy {
 
     public void init(FMLInitializationEvent e) {
         Config.modsList.removeIf(String::isEmpty);
-        Config.modsList.forEach(this::getMod);
+        for (int i = 0; i < Config.modsList.size(); i++) {
+            getMod(Config.modsList.get(i), Config.modsNameList.get(i));
+        }
     }
 
     public void postInit(FMLPostInitializationEvent e) {
@@ -76,32 +78,29 @@ public class CommonProxy {
         }
     }
 
-    public void getMod(String url) {
+    public void getMod(String url, String filename) {
         try {
-            downloadFilesFromURL(url);
+            downloadFilesFromURL(url, filename);
         } catch (IOException e) {
             Main.logger.error(e.getMessage());
         }
     }
 
-    public void downloadFilesFromURL(String FILE_URL) throws IOException {
-        String filename = getFileNameFromURL(FILE_URL);
-        if (!filename.isEmpty()) {
-            String output = path + "\\" + filename;
-            Boolean exists = new File(output).exists();
-            if (!exists) {
-                Main.logger.log(Level.INFO, "Started downloading mod: " + filename);
-                URL website = new URL(FILE_URL);
-                URLConnection connection = website.openConnection();
-                connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
-                InputStream is = connection.getInputStream();
-                ReadableByteChannel rbc = Channels.newChannel(is);
-                FileOutputStream fos = new FileOutputStream(output);
-                fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-                Main.logger.log(Level.INFO, "Finished downloading mod: " + filename);
-            } else {
-                Main.logger.log(Level.INFO, "Mod " + filename + " has already on the folder so it won't be downloaded again");
-            }
+    public void downloadFilesFromURL(String FILE_URL, String filename) throws IOException {
+        String output = path + "\\" + filename;
+        Boolean exists = new File(output).exists();
+        if (!exists) {
+            Main.logger.log(Level.INFO, "Started downloading mod: " + filename);
+            URL website = new URL(FILE_URL);
+            URLConnection connection = website.openConnection();
+            connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+            InputStream is = connection.getInputStream();
+            ReadableByteChannel rbc = Channels.newChannel(is);
+            FileOutputStream fos = new FileOutputStream(output);
+            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+            Main.logger.log(Level.INFO, "Finished downloading mod: " + filename);
+        } else {
+            Main.logger.log(Level.INFO, "Mod " + filename + " has already on the folder so it won't be downloaded again");
         }
     }
 }
