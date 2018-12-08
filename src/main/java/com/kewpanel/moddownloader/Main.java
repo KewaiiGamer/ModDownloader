@@ -22,8 +22,8 @@ public class Main {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent e) {
-        proxy.preInit(e);
         logger = e.getModLog();
+        proxy.preInit(e);
     }
 
     @Mod.EventHandler
@@ -35,5 +35,4 @@ public class Main {
     public void postInit(FMLPostInitializationEvent e) {
         proxy.postInit(e);
     }
-
 }

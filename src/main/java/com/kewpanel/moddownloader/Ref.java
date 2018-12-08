@@ -5,7 +5,7 @@ public class Ref {
     public static final String MODID = "moddownloader";
     static final String NAME = "Mod Downloader";
     static final String VERSION_MAJOR = "0";
-    static final String VERSION_MINOR = "2";
+    static final String VERSION_MINOR = "3";
     static final String VERSION_BUILD = "0";
 
     static final String CLIENT_PROXY = "com.kewpanel.moddownloader.proxy.ClientProxy";

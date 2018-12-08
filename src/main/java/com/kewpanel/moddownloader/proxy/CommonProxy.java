@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -34,14 +33,11 @@ public class CommonProxy {
         Config.readConfig();
         path = directory.getParent() + "\\mods";
         Ref.MC_VERSION = Minecraft.getMinecraft().getVersion();
+        Config.curseforgeModsList.removeIf(String::isEmpty);
+        Config.curseforgeModsList.forEach(this::getModFromCurse);
     }
 
     public void init(FMLInitializationEvent e) {
-        Config.modsList.removeIf(String::isEmpty);
-        for (int i = 0; i < Config.modsList.size(); i++) {
-            getMod(Config.modsList.get(i), Config.modsNameList.get(i), false);
-        }
-        Config.curseforgeModsList.forEach(this::getModFromCurse);
     }
 
     public void postInit(FMLPostInitializationEvent e) {
@@ -79,26 +75,17 @@ public class CommonProxy {
                     if (matcher.find()) fileName = (matcher.group().substring(1));
                 }
             }
-            getMod(modURL, fileName, true);
+            downloadFileFromURL(modURL, fileName);
         } catch (IOException e1) {
             e1.printStackTrace();
         }
     }
 
-    public void getMod(String url, String filename, boolean fromCurse) {
-        try {
-            downloadFilesFromURL(url, filename, fromCurse);
-        } catch (IOException e) {
-            Main.logger.error(e.getMessage());
-        }
-    }
-
-    public void downloadFilesFromURL(String FILE_URL, String filename, boolean fromCurse) throws IOException {
+    public void downloadFileFromURL(String FILE_URL, String filename) throws IOException {
         String output = path + "\\" + filename;
         Boolean exists = new File(output).exists();
         if (!exists) {
-            String modType = fromCurse ? "CurseForge mod" : "mod";
-            Main.logger.log(Level.INFO, "Started downloading " + modType + ": " + filename + " from " + FILE_URL);
+            Main.logger.log(Level.INFO, "Started downloading Mod: " + filename + " from " + FILE_URL);
             URL website = new URL(FILE_URL);
             URLConnection connection = website.openConnection();
             connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
@@ -106,7 +93,7 @@ public class CommonProxy {
             ReadableByteChannel rbc = Channels.newChannel(is);
             FileOutputStream fos = new FileOutputStream(output);
             fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            Main.logger.log(Level.INFO, "Finished downloading " + modType + ": " + filename);
+            Main.logger.log(Level.INFO, "Finished downloading Mod: " + filename);
         } else {
             Main.logger.log(Level.INFO, "Mod " + filename + " has already on the folder so it won't be downloaded again");
         }
