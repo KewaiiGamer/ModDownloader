@@ -2,6 +2,8 @@ package com.kewpanel.moddownloader.proxy;
 
 import com.kewpanel.moddownloader.Config;
 import com.kewpanel.moddownloader.Main;
+import com.kewpanel.moddownloader.Ref;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
@@ -17,59 +19,29 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CommonProxy {
 
     public static Configuration config;
     public String path;
 
-    public static String getFileNameFromURL(String url) {
-        if (url == null) {
-            return "";
-        }
-        try {
-            URL resource = new URL(url);
-            String host = resource.getHost();
-            if (host.length() > 0 && url.endsWith(host)) {
-                // handle ...example.com
-                return "";
-            }
-        } catch (MalformedURLException e) {
-            return "";
-        }
-
-        int startIndex = url.lastIndexOf('/') + 1;
-        int length = url.length();
-
-        // find end index for ?
-        int lastQMPos = url.lastIndexOf('?');
-        if (lastQMPos == -1) {
-            lastQMPos = length;
-        }
-
-        // find end index for #
-        int lastHashPos = url.lastIndexOf('#');
-        if (lastHashPos == -1) {
-            lastHashPos = length;
-        }
-
-        // calculate the end index
-        int endIndex = Math.min(lastQMPos, lastHashPos);
-        return url.substring(startIndex, endIndex);
-    }
-
     public void preInit(FMLPreInitializationEvent e) {
         File directory = e.getModConfigurationDirectory();
         config = new Configuration(new File(directory.getPath(), "moddownloader.cfg"));
         Config.readConfig();
         path = directory.getParent() + "\\mods";
+        Ref.MC_VERSION = Minecraft.getMinecraft().getVersion();
     }
 
     public void init(FMLInitializationEvent e) {
         Config.modsList.removeIf(String::isEmpty);
         for (int i = 0; i < Config.modsList.size(); i++) {
-            getMod(Config.modsList.get(i), Config.modsNameList.get(i));
+            getMod(Config.modsList.get(i), Config.modsNameList.get(i), false);
         }
+        Config.curseforgeModsList.forEach(this::getModFromCurse);
     }
 
     public void postInit(FMLPostInitializationEvent e) {
@@ -78,19 +50,55 @@ public class CommonProxy {
         }
     }
 
-    public void getMod(String url, String filename) {
+    public void getModFromCurse(String mod) {
         try {
-            downloadFilesFromURL(url, filename);
+            URL website = new URL("https://minecraft.curseforge.com/projects/" + mod + "/files");
+            URLConnection connection = website.openConnection();
+            connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+            Scanner scanner = new Scanner(connection.getInputStream());
+            scanner.useDelimiter("\\Z");
+            String content = scanner.next();
+            Pattern pattern = Pattern.compile("project-file-list-item(?:.(?!project-file-list-item))*.(?s).*<span class=\"version-label\">" + Ref.MC_VERSION, Pattern.MULTILINE);
+            Matcher matcher = pattern.matcher(content);
+            String fileName = "";
+            String modURL = "";
+            if (matcher.find()) {
+                pattern = Pattern.compile("projects/" + mod + "/files/.*./download");
+                matcher = pattern.matcher(matcher.group());
+                if (matcher.find()) {
+                    modURL = "https://minecraft.curseforge.com/" + matcher.group();
+                    website = new URL(modURL.substring(0, modURL.length() - 8));
+                    connection = website.openConnection();
+                    connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+                    scanner = new Scanner(connection.getInputStream());
+                    scanner.useDelimiter("\\Z");
+                    String filePage = scanner.next();
+                    pattern = Pattern.compile(">.*.jar");
+                    matcher = pattern.matcher(filePage);
+
+                    if (matcher.find()) fileName = (matcher.group().substring(1));
+                }
+            }
+            getMod(modURL, fileName, true);
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+    }
+
+    public void getMod(String url, String filename, boolean fromCurse) {
+        try {
+            downloadFilesFromURL(url, filename, fromCurse);
         } catch (IOException e) {
             Main.logger.error(e.getMessage());
         }
     }
 
-    public void downloadFilesFromURL(String FILE_URL, String filename) throws IOException {
+    public void downloadFilesFromURL(String FILE_URL, String filename, boolean fromCurse) throws IOException {
         String output = path + "\\" + filename;
         Boolean exists = new File(output).exists();
         if (!exists) {
-            Main.logger.log(Level.INFO, "Started downloading mod: " + filename);
+            String modType = fromCurse ? "CurseForge mod" : "mod";
+            Main.logger.log(Level.INFO, "Started downloading " + modType + ": " + filename + " from " + FILE_URL);
             URL website = new URL(FILE_URL);
             URLConnection connection = website.openConnection();
             connection.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
@@ -98,7 +106,7 @@ public class CommonProxy {
             ReadableByteChannel rbc = Channels.newChannel(is);
             FileOutputStream fos = new FileOutputStream(output);
             fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            Main.logger.log(Level.INFO, "Finished downloading mod: " + filename);
+            Main.logger.log(Level.INFO, "Finished downloading " + modType + ": " + filename);
         } else {
             Main.logger.log(Level.INFO, "Mod " + filename + " has already on the folder so it won't be downloaded again");
         }
